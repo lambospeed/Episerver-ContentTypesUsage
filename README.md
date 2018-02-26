@@ -1,9 +1,10 @@
 <h1>ContentTypesUsage</h1>
-Simple Episerver CMS report of content types and the usage. Helps on getting overall view of content and workin with property changes, language changes and migrations.
-Tool is for Episerver administrators, developers and content admins.
 
-This is a single file app with ASP.NET Web Pages. So, just add ContentTypesUsage.cshtml file into your project.
-Requires: https://www.nuget.org/packages/Microsoft.AspNet.WebPages/
+<p>Simple Episerver CMS report of content types and the usage. Helps on getting overall view of content and workin with property changes, language changes and migrations.<br/>
+Tool is for Episerver administrators, developers and content admins.</p>
+
+<p>This is a single file app with ASP.NET Web Pages. So, just add ContentTypesUsage.cshtml file into your project.<br/>
+Requires: <a href="https://www.nuget.org/packages/Microsoft.AspNet.WebPages/">Microsoft.AspNet.WebPages nuget</a></p>
 
 <h2>Screenshots<h2>
 
