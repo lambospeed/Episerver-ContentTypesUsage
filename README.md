@@ -9,4 +9,4 @@ Requires: https://www.nuget.org/packages/Microsoft.AspNet.WebPages/
 
 <p><img src="https://raw.githubusercontent.com/huilaaja/ContentTypesUsage/master/images/ContentTypesUsageReport1.png" width="500"/>
 
-<p><img src="https://raw.githubusercontent.com/huilaaja/ContentTypesUsage/master/images/ContentTypesUsageReport1.png" width="500"/>
+<p><img src="https://raw.githubusercontent.com/huilaaja/ContentTypesUsage/master/images/ContentTypesUsageReport2.png" width="500"/>
