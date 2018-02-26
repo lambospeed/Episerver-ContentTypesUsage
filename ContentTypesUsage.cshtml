@@ -1,0 +1,284 @@
+@inherits System.Web.WebPages.WebPage
+@using System.Configuration
+@using System.Data.Common
+@using System.Data.SqlClient
+@using EPiServer
+@using EPiServer.Core
+@using EPiServer.ServiceLocation
+@using EPiServer.Web.Routing
+@* 
+    This is single file app with ASP.NET Web Pages. So, just add this into your project.
+    Requires: https://www.nuget.org/packages/Microsoft.AspNet.WebPages/
+*@
+@{
+    if (!(User.IsInRole("WebAdmins") || User.IsInRole("CmsAdmins") || User.IsInRole("Administrators")))
+    {
+        Response.ClearContent();
+        Response.Write("Access denied because user is not an administrator.");
+        Response.StatusCode = (int)HttpStatusCode.Forbidden;
+        return;
+    }
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>Content Types Usage Report</title>
+
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/open-iconic/1.1.1/font/css/open-iconic-bootstrap.min.css" />
+    <script src="//maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        @if (String.IsNullOrEmpty(Request["ContentTypeId"]))
+        {
+            <h1>Content Types</h1>
+            var usageQueryResult = GetContentTypeUsageReport();
+
+            <p style="float:left;">Total count: @(usageQueryResult.Count)</p>
+            <div class="table-responsive-md">
+                <table class="table table-condensed table-hover table-sm data-table">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th class="indexColumn"></th>
+                            <th>Id</th>
+                            <th>Name</th>
+                            <th>Count</th>
+                            <th>Type</th>
+                            <th>Assembly</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var d in usageQueryResult)
+                        {
+                            string[] parts = d.Item4?.Split(new[] { "," }, StringSplitOptions.RemoveEmptyEntries)
+                                                    .Select(s => s.Trim())
+                                                    .ToArray() ?? new string[] { };
+                            string model = parts.FirstOrDefault() ?? "";
+                            string assembly = parts.ElementAtOrDefault(1);
+                            string rowLink = $"?ContentTypeId={d.Item1}";
+                            string type = model.EndsWith("Page", StringComparison.InvariantCultureIgnoreCase)
+                                    ? "Page"
+                                    : model.EndsWith("Block", StringComparison.InvariantCultureIgnoreCase)
+                                        ? "Block"
+                                        : "File";
+                            <tr>
+                                <td></td>
+                                <td><a href="@(rowLink)" class="btn btn-secondary btn-sm" style="width:54px;">@(d.Item1)</a></td>
+                                <td><a href="@(rowLink)">@(d.Item2)</a></td>
+                                <td>@(d.Item3)</td>
+                                <td>@(type)</td>
+                                <td><span class="oi oi-box" title="@(model)" aria-hidden="true"></span> @(assembly)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div style="margin:20px 0;"><a href="@(Request.Url.AbsolutePath)" class="btn btn-secondary btn-sm"> &lt;&lt; Back to list</a></div>
+
+            <h1>Content Type Usage (id: @(Request.Params["ContentTypeId"]))</h1>
+
+            List<Tuple<int, int, string, int, string, string, string>> singleContentTypeReport = GetSingleContentTypeReport(int.Parse(Request["ContentTypeId"]));
+
+            <p style="float:left;">Total count: @(singleContentTypeReport.Count)</p>
+            <div class="table-responsive-md">
+                <table class="table table-condensed table-hover table-sm data-table">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th class="indexColumn"></th>
+                            <th>Id</th>
+                            <th><span title="Language ID">Lang</span></th>
+                            <th><span title="Master Language">Master</span></th>
+                            <th>Name</th>
+                            <th>Folder or Path</th>
+                            <th>Url</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var d in singleContentTypeReport)
+                        {
+                            string language = d.Item5;
+                            var pathNames = d.Item3.Split('.')
+                                .Where(s => !String.IsNullOrEmpty(s))
+                                .Select(s => _contentLoader.Get<IContent>(new ContentReference(int.Parse(s)))?.Name)
+                                .Where(s => s != "Root")
+                                .ToArray();
+                            var folderPath = string.Join(" / ", pathNames);
+                            var url = _urlResolver.GetUrl(new ContentReference(d.Item1), language);
+                            string editUrl = $"/editmode/CMS/?language={language}#context=epi.cms.contentdata:///{d.Item1}&viewsetting=viewlanguage:///{language}"; //_urlResolver.GetUrl(new ContentReference(d.Item1), language, new VirtualPathArguments() { ContextMode = ContextMode.Edit })?.Replace("?epieditmode=True", "");
+
+                            <tr>
+                                <td></td>
+                                <td>@(d.Item1)</td>
+                                <td>@(language)</td>
+                                <td>@(language == d.Item7)</td>
+                                <td>@(d.Item6)</td>
+                                <td><span class="oi oi-folder" title="@(d.Item3)" aria-hidden="true"></span> @(folderPath)</td>
+                                <td style="white-space: nowrap; overflow: hidden;">
+                                    @if (url != null)
+                                    {<a href="@url">link</a>}
+                                    @if (url != null && editUrl != null)
+                                    {<span>|</span>}
+                                    @if (editUrl != null)
+                                    {<a href="@(editUrl)">edit link</a>}
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+    </div>
+
+    <style>
+        h1 {
+            margin: 30px 0;
+        }
+
+        .dataTables_filter {
+            float: right;
+        }
+
+        table.dataTable thead .sorting,
+        table.dataTable thead .sorting_asc,
+        table.dataTable thead .sorting_desc,
+        table.dataTable thead .sorting_asc_disabled,
+        table.dataTable thead .sorting_desc_disabled {
+            cursor: pointer;
+            *cursor: hand;
+            background-repeat: no-repeat;
+            background-position: center right;
+            padding-right: 20px;
+        }
+
+        table.dataTable thead .sorting {
+            background-image: url('//cdn.datatables.net/1.10.16/images/sort_both.png');
+        }
+
+        table.dataTable thead .sorting_asc {
+            background-image: url('//cdn.datatables.net/1.10.16/images/sort_asc.png');
+        }
+
+        table.dataTable thead .sorting_desc {
+            background-image: url('//cdn.datatables.net/1.10.16/images/sort_desc.png');
+        }
+
+        table.dataTable thead .sorting_asc_disabled {
+            background-image: url('//cdn.datatables.net/1.10.16/images/sort_asc_disabled.png');
+        }
+
+        table.dataTable thead .sorting_desc_disabled {
+            background-image: url('//cdn.datatables.net/1.10.16/images/sort_desc_disabled.png');
+        }
+
+        .table .thead-dark th.indexColumn {
+            background-image: none;
+            cursor: default;
+        }
+    </style>
+    <script type="text/javascript" src="//code.jquery.com/jquery-2.2.4.min.js"></script>
+    <script type="text/javascript" src="//cdn.datatables.net/1.10.16/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript">
+        $(document).ready(function () {
+            var t = $('.data-table').DataTable({ paging: false, searching: true, info: false, order: [] });
+            t.on('order.dt search.dt', function () {
+                t.column(0, { search: 'applied', order: 'applied' }).nodes().each(function (cell, i) {
+                    cell.innerHTML = i + 1;
+                });
+            }).draw();
+        });
+    </script>
+
+</body>
+</html>
+
+@functions{
+    readonly IContentLoader _contentLoader = ServiceLocator.Current.GetInstance<IContentLoader>();
+    readonly UrlResolver _urlResolver = ServiceLocator.Current.GetInstance<UrlResolver>();
+
+    public List<Tuple<int, int, string, int, string, string, string>> GetSingleContentTypeReport(int typeId)
+    {
+        string SqlQuery = @"
+      SELECT c.[pkID] as Id
+            ,c.[fkContentTypeID] as ContentTypeID
+            ,c.[ContentPath]
+            ,b.LanguageID
+            ,c.[fkMasterLanguageBranchID]
+            ,l.[fkLanguageBranchID]
+            ,l.[Name]
+            ,bm.LanguageID as MasterLanguageID
+        FROM [tblContent] as c INNER JOIN
+            [tblContentLanguage] as l on c.pkID = l.fkContentID INNER JOIN
+            [tblLanguageBranch] as b on l.[fkLanguageBranchID] = b.pkID INNER JOIN
+            [tblLanguageBranch] as bm on c.[fkMasterLanguageBranchID] = bm.pkID
+        where [fkContentTypeID] = {0}";
+
+        SqlConnection conn = new SqlConnection(ConfigurationManager.ConnectionStrings["EPiServerDB"].ConnectionString);
+        conn.Open();
+        SqlDataReader reader = new SqlCommand(String.Format(SqlQuery, typeId), conn).ExecuteReader();
+        var queryResult = reader.Cast<DbDataRecord>()
+                                .Select(d =>
+                                new Tuple<int, int, string, int, string, string, string>(
+                                    ConvertFromDbVal<int>(d["Id"]),
+                                    ConvertFromDbVal<int>(d["ContentTypeID"]),
+                                    ConvertFromDbVal<String>(d["ContentPath"])?.Trim(),
+                                    ConvertFromDbVal<int>(d["fkMasterLanguageBranchID"]),
+                                    ConvertFromDbVal<string>(d["LanguageID"])?.Trim(),
+                                    ConvertFromDbVal<string>(d["Name"])?.Trim(),
+                                    ConvertFromDbVal<string>(d["MasterLanguageID"])?.Trim()
+                                    )
+                                )
+                                .ToList();
+        conn.Close();
+        return queryResult;
+    }
+
+    public List<Tuple<int, string, int, string>> GetContentTypeUsageReport()
+    {
+        string SqlQuery = @"
+        select
+            t.[pkID] as TypeId,
+            t.[Name] as TypeName,
+            t.ModelType as FullType,
+            COUNT(l.fkContentID) as [Count]
+            FROM [tblContentType] as t INNER JOIN
+                [tblContent] as c on t.pkID = c.fkContentTypeID INNER JOIN
+                [tblContentLanguage] as l on c.pkID = l.fkContentID
+        GROUP BY
+            t.[pkID], t.[Name], t.ModelType, c.fkContentTypeID
+        ORDER BY
+            [Count] DESC
+        ";
+
+        SqlConnection conn = new SqlConnection(ConfigurationManager.ConnectionStrings["EPiServerDB"].ConnectionString);
+        conn.Open();
+        SqlDataReader reader = new SqlCommand(SqlQuery, conn).ExecuteReader();
+        var queryResult = reader.Cast<DbDataRecord>()
+                                .Select(d =>
+                                new Tuple<int, string, int, string>(
+                                    ConvertFromDbVal<int>(d["TypeId"]),
+                                    ConvertFromDbVal<String>(d["TypeName"])?.Trim(),
+                                    ConvertFromDbVal<int>(d["Count"]),
+                                    ConvertFromDbVal<String>(d["FullType"])?.Trim()
+                                    )
+                                )
+                                .ToList();
+        conn.Close();
+        return queryResult;
+    }
+
+    public static T ConvertFromDbVal<T>(object obj)
+    {
+        return (obj == null || obj == DBNull.Value) ? default(T) : (T)obj;
+    }
+
+}
