@@ -216,9 +216,9 @@
             ,l.[fkLanguageBranchID]
             ,l.[Name]
             ,bm.LanguageID as MasterLanguageID
-        FROM [tblContent] as c INNER JOIN
-            [tblContentLanguage] as l on c.pkID = l.fkContentID INNER JOIN
-            [tblLanguageBranch] as b on l.[fkLanguageBranchID] = b.pkID INNER JOIN
+        FROM [tblContent] as c LEFT OUTER JOIN
+            [tblContentLanguage] as l on c.pkID = l.fkContentID LEFT OUTER JOIN
+            [tblLanguageBranch] as b on l.[fkLanguageBranchID] = b.pkID LEFT OUTER JOIN
             [tblLanguageBranch] as bm on c.[fkMasterLanguageBranchID] = bm.pkID
         where [fkContentTypeID] = {0}";
 
@@ -250,8 +250,8 @@
             t.[Name] as TypeName,
             t.ModelType as FullType,
             COUNT(l.fkContentID) as [Count]
-            FROM [tblContentType] as t INNER JOIN
-                [tblContent] as c on t.pkID = c.fkContentTypeID INNER JOIN
+            FROM [tblContentType] as t LEFT OUTER JOIN
+                [tblContent] as c on t.pkID = c.fkContentTypeID LEFT OUTER JOIN
                 [tblContentLanguage] as l on c.pkID = l.fkContentID
         GROUP BY
             t.[pkID], t.[Name], t.ModelType, c.fkContentTypeID
